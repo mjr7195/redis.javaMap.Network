@@ -1,11 +1,11 @@
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.net.Socket;
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.exceptions.JedisConnectionException;
 
 
 public class CSVReader {
@@ -41,7 +41,7 @@ public class CSVReader {
         portDescriptions.forEach((key, value) -> System.out.println(key+ " " + value));
 
         //Scan local host *******************************************************************
-        List<Integer> localPorts = new ArrayList<>(); // holds local ports
+        Map<Integer, Integer> localPorts = new TreeMap<>(); // holds local ports
 
         String targetHost = "localhost"; // Change this to the target host you want to scan
         int minPort = 1;
@@ -53,7 +53,7 @@ public class CSVReader {
             try {
                 Socket socket = new Socket(targetHost, port);
                 System.out.println("Port " + port + " is open");
-                localPorts.add(port);
+                localPorts.put(port, port);
                 socket.close();
             } catch (IOException e) {
                 // Port is likely closed or unreachable
@@ -61,7 +61,40 @@ public class CSVReader {
         }
 
         System.out.println("Port scanning finished.");
-        System.out.println(localPorts);
 
+        //match local ports with port descriptions
+        Map<Integer, String> localPortDescriptions = new TreeMap<>();//Sorted
+        for (Map.Entry<Integer, String> entry : portDescriptions.entrySet()){
+            if (localPorts.containsKey(entry.getKey())) {
+                localPortDescriptions.put(entry.getKey(), entry.getValue());
+            }
+        }
+
+        System.out.println();
+        System.out.println("My local ports descriptions are:");
+        for(Map.Entry<Integer, String> entry : localPortDescriptions.entrySet()){
+            int localHostKey = entry.getKey();
+            String localHostDescription = entry.getValue();
+            System.out.println("Port: " +localHostKey+ ", Description: "+ localHostDescription);
+        }
+
+        //upload to redis
+        try{
+            Jedis jedis = new Jedis("localhost");
+            for (Map.Entry<Integer, String> entry : localPortDescriptions.entrySet()) {
+                int localKey = entry.getKey();
+                String localDescription = entry.getValue();
+                String stringLocalKey = String.valueOf(localKey);
+                //Create (Set a key-value pair)
+                jedis.set(stringLocalKey, localDescription);
+                String value = jedis.get(stringLocalKey);
+                System.out.println("Port:" +stringLocalKey+ ", Description: "+ value );
+            }
+        }catch (JedisConnectionException e){
+            System.out.println("Could not connect to Redis:" + e.getMessage());
+        }
+
+
+      }
     }
-}
+
