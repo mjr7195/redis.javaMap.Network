@@ -12,7 +12,7 @@ public class CSVReader {
     public static void main(String[] args) {
         String pathToCsv = "service-names-port-numbers.csv"; // replace with your CSV file path
         String line;
-        Map<Integer, String> portDescriptions = new TreeMap<>(); //Sorted
+        Map<Integer, String> portDescriptions = new TreeMap<>(); //Sorted, holds ports with descriptions from CSV file
 
         try (BufferedReader br = new BufferedReader(new FileReader(pathToCsv))) {
 
@@ -62,8 +62,8 @@ public class CSVReader {
 
         System.out.println("Port scanning finished.");
 
-        //match local ports with port descriptions
-        Map<Integer, String> localPortDescriptions = new TreeMap<>();//Sorted
+        //match local ports with port descriptions **************************************************
+        Map<Integer, String> localPortDescriptions = new TreeMap<>();//Sorted, holds my local ports with descriptions
         for (Map.Entry<Integer, String> entry : portDescriptions.entrySet()){
             if (localPorts.containsKey(entry.getKey())) {
                 localPortDescriptions.put(entry.getKey(), entry.getValue());
@@ -78,9 +78,10 @@ public class CSVReader {
             System.out.println("Port: " +localHostKey+ ", Description: "+ localHostDescription);
         }
 
-        //upload to redis
+        //upload to redis and display from redis ********************************************************
+        Jedis jedis = null;
         try{
-            Jedis jedis = new Jedis("localhost");
+            jedis = new Jedis("localhost");
             for (Map.Entry<Integer, String> entry : localPortDescriptions.entrySet()) {
                 int localKey = entry.getKey();
                 String localDescription = entry.getValue();
@@ -92,6 +93,8 @@ public class CSVReader {
             }
         }catch (JedisConnectionException e){
             System.out.println("Could not connect to Redis:" + e.getMessage());
+        }finally {
+            jedis.close();
         }
 
 
